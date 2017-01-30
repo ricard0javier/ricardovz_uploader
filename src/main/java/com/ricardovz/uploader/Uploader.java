@@ -145,11 +145,18 @@ public class Uploader implements RequestStreamHandler {
 
         RequestDTO request = objectMapper.readValue(requestBody, RequestDTO.class);
 
-        if (!isTokenValid(request.getToken())
-                || !isAuthorised(request.getToken(), request.getBucket())) {
+        if (!isTokenValid(request.getToken())) {
 
             resultDTO.setStatusCode(HTTP_UNAUTHORIZED);
-            logger.log("unauthorised");
+            logger.log("Token not valid");
+
+            return objectMapper.writeValueAsString(resultDTO);
+        }
+
+        if (!isAuthorised(request.getToken(), request.getBucket())) {
+
+            resultDTO.setStatusCode(HTTP_UNAUTHORIZED);
+            logger.log("The user does not have enough permissions");
 
             return objectMapper.writeValueAsString(resultDTO);
         }
