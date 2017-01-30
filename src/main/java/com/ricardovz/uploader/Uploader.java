@@ -124,7 +124,7 @@ public class Uploader implements RequestStreamHandler {
         }
         objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        objectMapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
         return objectMapper;
     }
