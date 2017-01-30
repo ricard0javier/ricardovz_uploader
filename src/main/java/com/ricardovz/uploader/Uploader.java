@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ricardovz.uploader.dto.Auth0TokenInfoRequestDTO;
+import com.ricardovz.uploader.dto.Auth0TokenInfoResponseDTO;
+import com.ricardovz.uploader.dto.RequestDTO;
 import com.ricardovz.uploader.dto.ResultDTO;
 import lombok.SneakyThrows;
 import org.apache.commons.codec.binary.Base64;
@@ -26,8 +28,6 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import com.ricardovz.uploader.dto.Auth0TokenInfoResponseDTO;
-import com.ricardovz.uploader.dto.RequestDTO;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -180,7 +180,8 @@ public class Uploader implements RequestStreamHandler {
 
     private boolean isTokenValid(String token) throws UnsupportedEncodingException {
         try {
-            JWT.require(Algorithm.HMAC256(jwtSecret))
+            byte[] decodedJwtSecret = Base64.decodeBase64(jwtSecret);
+            JWT.require(Algorithm.HMAC256(decodedJwtSecret))
                     .withIssuer(jwtIssuer)
                     .withAudience(jwtAudience)
                     .build()
