@@ -1,0 +1,50 @@
+apply plugin: 'java'
+apply plugin: "io.spring.dependency-management"
+
+sourceCompatibility = 1.8
+
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "io.spring.gradle:dependency-management-plugin:1.0.0.RC2"
+    }
+}
+
+
+dependencyManagement {
+    imports {
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.10.77'
+    }
+}
+
+dependencies {
+    compile "org.slf4j:slf4j-api:1.7.21"
+    compile "org.projectlombok:lombok:1.16.10"
+    compile 'com.auth0:java-jwt:3.1.0'
+    compile "com.amazonaws:aws-lambda-java-core:1.1.0"
+    compile 'com.amazonaws:aws-java-sdk-s3'
+    testCompile "junit:junit:4.11"
+    testCompile "ch.qos.logback:logback-classic:1.1.7"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.0'
+}
+
+task buildZip(type: Zip) {
+    from compileJava
+    from processResources
+    into('lib') {
+        from configurations.runtime
+    }
+}
+
+build.dependsOn buildZip
