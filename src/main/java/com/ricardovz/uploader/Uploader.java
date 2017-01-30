@@ -1,4 +1,4 @@
-package org.generationinitiative.uploader;
+package com.ricardovz.uploader;
 
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -15,6 +15,8 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.ricardovz.uploader.dto.Auth0TokenInfoRequestDTO;
+import com.ricardovz.uploader.dto.ResultDTO;
 import lombok.SneakyThrows;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -24,10 +26,8 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.generationinitiative.uploader.dto.Auth0TokenInfoRequestDTO;
-import org.generationinitiative.uploader.dto.Auth0TokenInfoResponseDTO;
-import org.generationinitiative.uploader.dto.RequestDTO;
-import org.generationinitiative.uploader.dto.ResultDTO;
+import com.ricardovz.uploader.dto.Auth0TokenInfoResponseDTO;
+import com.ricardovz.uploader.dto.RequestDTO;
 
 import java.io.*;
 import java.nio.charset.Charset;

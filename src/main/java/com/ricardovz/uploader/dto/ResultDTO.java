@@ -1,4 +1,4 @@
-package org.generationinitiative.uploader.dto;
+package com.ricardovz.uploader.dto;
 
 import lombok.Data;
 
