@@ -203,6 +203,7 @@ public class Uploader implements RequestStreamHandler {
             HttpEntity entity = new StringEntity(entityString);
 
             HttpPost request = new HttpPost(jwtIssuer + "tokeninfo");
+            request.setHeader("Content-type", "application/json");
             request.setEntity(entity);
 
             HttpClient httpClient = HttpClientBuilder.create().build();
