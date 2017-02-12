@@ -1,10 +1,10 @@
-package com.ricardovz.uploader.dto;
+package com.ricardovz.uploader.dto.auth0;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
-public class Auth0TokenInfoRequestDTO {
+public class TokenInfoRequestDTO {
 
     @JsonProperty("id_token")
     private String idToken;

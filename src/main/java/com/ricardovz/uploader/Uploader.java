@@ -4,7 +4,7 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
-import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -13,13 +13,12 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.ricardovz.uploader.dto.Auth0TokenInfoRequestDTO;
-import com.ricardovz.uploader.dto.Auth0TokenInfoResponseDTO;
 import com.ricardovz.uploader.dto.RequestDTO;
-import com.ricardovz.uploader.dto.ResultDTO;
+import com.ricardovz.uploader.dto.ResponseDTO;
+import com.ricardovz.uploader.dto.auth0.TokenInfoRequestDTO;
+import com.ricardovz.uploader.dto.auth0.TokenInfoResponseDTO;
 import lombok.SneakyThrows;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -30,16 +29,12 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 
-import java.io.*;
-import java.nio.charset.Charset;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
-public class Uploader implements RequestStreamHandler {
-
-    // constants
-    private static final String DEFAULT_BODY = "{}";
-    private static final Charset STREAMS_ENCODING = Charset.forName("UTF-8");
+public class Uploader implements RequestHandler<RequestDTO, ResponseDTO> {
 
     private LambdaLogger logger;
     private ObjectMapper objectMapper;
@@ -84,38 +79,9 @@ public class Uploader implements RequestStreamHandler {
     }
 
     @Override
-    public void handleRequest(InputStream input, OutputStream output, Context context) throws IOException {
+    public ResponseDTO handleRequest(RequestDTO request, Context context) {
         LambdaLogger logger = getLogger(context);
-
-        String inputString = convertToString(input);
-
-        String body = extract(inputString, "body");
-
-        String result = process(body, logger);
-
-        result = result == null ? DEFAULT_BODY : result;
-
-        output.write(result.getBytes(STREAMS_ENCODING));
-
-    }
-
-    private String convertToString(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream result = new ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
-        int length;
-        while ((length = inputStream.read(buffer)) != -1) {
-            result.write(buffer, 0, length);
-        }
-        return result.toString(STREAMS_ENCODING.displayName());
-    }
-
-    private String extract(String inputString, String nodeKey) throws IOException {
-        ObjectMapper objectMapper = getObjectMapper();
-        JsonNode jsonNode = objectMapper.readTree(inputString);
-        if (jsonNode == null || !jsonNode.has(nodeKey)) {
-            return DEFAULT_BODY;
-        }
-        return jsonNode.findValue(nodeKey).asText(DEFAULT_BODY);
+        return process(request, logger);
     }
 
     private ObjectMapper getObjectMapper() {
@@ -138,46 +104,42 @@ public class Uploader implements RequestStreamHandler {
     }
 
     @SneakyThrows
-    public String process(String requestBody, LambdaLogger logger) {
-        logger.log("requestBody:\n" + requestBody);
+    private ResponseDTO process(RequestDTO requestDTO, LambdaLogger logger) {
+        logger.log("requestBody:\n" + requestDTO);
 
-        ResultDTO resultDTO = new ResultDTO();
+        if (!isTokenValid(requestDTO.getToken())) {
 
-        ObjectMapper objectMapper = getObjectMapper();
-
-        RequestDTO request = objectMapper.readValue(requestBody, RequestDTO.class);
-
-        if (!isTokenValid(request.getToken())) {
-
-            resultDTO.setStatusCode(HTTP_UNAUTHORIZED);
             logger.log("Token not valid");
+            return ResponseDTO.builder()
+                    .statusCode(HTTP_UNAUTHORIZED)
+                    .build();
 
-            return objectMapper.writeValueAsString(resultDTO);
         }
 
-        if (!isAuthorised(request.getToken(), request.getBucket())) {
+        if (!isAuthorised(requestDTO.getToken(), requestDTO.getBucket())) {
 
-            resultDTO.setStatusCode(HTTP_UNAUTHORIZED);
             logger.log("The user does not have enough permissions");
+            return ResponseDTO.builder()
+                    .statusCode(HTTP_UNAUTHORIZED)
+                    .build();
 
-            return objectMapper.writeValueAsString(resultDTO);
         }
 
-        StringInputStream stringInputStream = new StringInputStream(request.getBody());
+        StringInputStream stringInputStream = new StringInputStream(requestDTO.getBody());
 
         ObjectMetadata metadata = new ObjectMetadata();
         byte[] resultByte = DigestUtils.md5(stringInputStream);
         String streamMD5 = new String(Base64.encodeBase64(resultByte));
         metadata.setContentMD5(streamMD5);
-        metadata.setContentLength(request.getBody().getBytes().length);
+        metadata.setContentLength(requestDTO.getBody().getBytes().length);
 
         // avoid leaving the stream in the last byte position
         stringInputStream.reset();
 
-        logger.log("uploading to bucket '" + request.getBucket() + "', with key '" + request.getKey() + "'");
-        s3.putObject(request.getBucket(), request.getKey(), stringInputStream, metadata);
+        logger.log("uploading to bucket '" + requestDTO.getBucket() + "', with key '" + requestDTO.getKey() + "'");
+        s3.putObject(requestDTO.getBucket(), requestDTO.getKey(), stringInputStream, metadata);
 
-        return objectMapper.writeValueAsString(resultDTO);
+        return ResponseDTO.builder().build();
     }
 
     private boolean isTokenValid(String token) throws UnsupportedEncodingException {
@@ -196,22 +158,23 @@ public class Uploader implements RequestStreamHandler {
 
     private boolean isAuthorised(String idToken, String bucketName) {
         try {
-            Auth0TokenInfoRequestDTO auth0TokenInfoRequestDTO = new Auth0TokenInfoRequestDTO();
-            auth0TokenInfoRequestDTO.setIdToken(idToken);
+            TokenInfoRequestDTO request = new TokenInfoRequestDTO();
+            request.setIdToken(idToken);
 
-            String entityString = getObjectMapper().writeValueAsString(auth0TokenInfoRequestDTO);
+            String entityString = getObjectMapper().writeValueAsString(request);
             HttpEntity entity = new StringEntity(entityString);
 
-            HttpPost request = new HttpPost(jwtIssuer + "tokeninfo");
-            request.setHeader("Content-type", "application/json");
-            request.setEntity(entity);
+            HttpPost httpRequest = new HttpPost(jwtIssuer + "tokeninfo");
+            httpRequest.setHeader("Content-type", "application/json");
+            httpRequest.setEntity(entity);
 
             HttpClient httpClient = HttpClientBuilder.create().build();
-            HttpResponse response = httpClient.execute(request);
+            HttpResponse httpResponse = httpClient.execute(httpRequest);
+            InputStream httpResponseBody = httpResponse.getEntity().getContent();
 
-            Auth0TokenInfoResponseDTO auth0TokenInfoResponseDTO = getObjectMapper().readValue(response.getEntity().getContent(), Auth0TokenInfoResponseDTO.class);
+            TokenInfoResponseDTO response = getObjectMapper().readValue(httpResponseBody, TokenInfoResponseDTO.class);
 
-            return auth0TokenInfoResponseDTO.getRoles().contains("upload:" + bucketName);
+            return response.getRoles().contains("upload:" + bucketName);
         } catch (Exception e) {
             e.printStackTrace();
         }

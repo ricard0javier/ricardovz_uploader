@@ -1,11 +1,11 @@
-package com.ricardovz.uploader.dto;
+package com.ricardovz.uploader.dto.auth0;
 
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-public class Auth0TokenInfoResponseDTO {
+public class TokenInfoResponseDTO {
 
     private List<String> roles;
 
